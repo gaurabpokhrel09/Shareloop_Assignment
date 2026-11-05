@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShareLoop — Sign In or Create Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=9" />
+</head>
+<body class="auth-body">
+  <!-- Animated Overlay Validation Modal (Success Checkmark / Rejection Alert) -->
+  <div id="auth-modal-backdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="auth-modal-heading">
+    <div class="modal-card auth-validation-modal">
+      <div id="auth-modal-icon" class="modal-icon-circle success">
+        <!-- Dynamically populated with bright green checkmark SVG on success or alert SVG on error -->
+      </div>
+      <h3 id="auth-modal-heading" class="modal-title">Registration Successful</h3>
+      <p id="auth-modal-body" class="auth-modal-copy"></p>
+      <div class="modal-actions">
+        <button type="button" id="auth-modal-close-btn" class="btn-primary" onclick="closeAuthOverlayModal()">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-wrapper">
+    <!-- Left Brand & Campus Impact Showcase -->
+    <div class="auth-showcase">
+      <div class="auth-brand">
+        <div class="brand-logo-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+        </div>
+        <span class="brand-title">ShareLoop</span>
+      </div>
+
+      <div class="auth-hero-copy">
+        <span class="auth-pill">Peer-to-Peer Campus Resource Network</span>
+        <h1>Share textbooks, lab gear, and equipment.</h1>
+        <p>
+          Join verified students, campus partner organizations, and platform moderators lending, donating, and swapping essential study resources with zero platform fees.
+        </p>
+
+        <div class="auth-stats-row">
+          <div class="auth-stat-item">
+            <strong>2 Roles (Student • Organization)</strong>
+            <span>Domain-Verified Campus Access</span>
+          </div>
+          <div class="auth-stat-item">
+            <strong>4-Angle</strong>
+            <span>Direct Photo Inspection</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-footer-note">
+        © 2026 ShareLoop University Exchange • Built with Python Flask &amp; SQLAlchemy
+      </div>
+    </div>
+
+    <!-- Right Interactive Authentication Card -->
+    <div class="auth-card-container">
+      <div class="auth-card">
+        <!-- View Switcher Tabs -->
+        <div class="auth-tabs">
+          <button type="button" id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">
+            Sign In
+          </button>
+          <button type="button" id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">
+            Create Account
+          </button>
+        </div>
+
+        <!-- Alert / Feedback Banner -->
+        <div id="auth-alert" class="auth-alert hidden"></div>
+
+        <!-- VIEW 1: LOGIN FORM (Explicit method="POST" & Canonical Password Manager Attributes) -->
+        <form id="login-form" method="POST" action="/api/auth/login" class="auth-form" onsubmit="handleLogin(event)">
+          <div class="auth-form-header">
+            <h2>Welcome back</h2>
+            <p>Sign in with your mail.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="login-email">Email Address</label>
+            <input
+              type="email"
+              id="login-email"
+              name="email"
+              autocomplete="username"
+              required
+              placeholder="example@gmail.com"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input
+              type="password"
+              id="login-password"
+              name="password"
+              autocomplete="current-password"
+              required
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <!-- Dynamic Role-Based Login Toggle (Positioned ABOVE Sign In Button) -->
+          <div class="form-group role-selector-container">
+            <label class="role-selector-label">Login as a</label>
+            <div class="role-toggle-grid">
+              <button
+                type="button"
+                id="role-btn-student"
+                class="role-toggle-btn active"
+                onclick="selectLoginRole('Student')"
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                id="role-btn-organization"
+                class="role-toggle-btn"
+                onclick="selectLoginRole('Organization')"
+              >
+                Organization
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Submit Button positioned visually BELOW "Login as a" with 32px top margin -->
+          <button type="submit" id="login-submit-btn" class="btn-primary btn-full auth-submit-btn">
+            Sign In to ShareLoop
+          </button>
+        </form>
+
+        <!-- VIEW 2: CREATE ACCOUNT / REGISTER FORM -->
+        <form id="register-form" method="POST" action="/api/auth/register" class="auth-form hidden" onsubmit="handleRegister(event)">
+          <div class="auth-form-header">
+            <h2>Create your account</h2>
+            <p>Register your Student or official Organization account.</p>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="reg-name">Full Name *</label>
+              <input
+                type="text"
+                id="reg-name"
+                name="name"
+                autocomplete="name"
+                required
+                placeholder="e.g. Jordan Taylor"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="reg-role">Account Role *</label>
+              <select id="reg-role" name="role" required onchange="handleRegisterRoleChange()">
+                <option value="Student" selected>Student</option>
+                <option value="Organization">Organization</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-email">Email Address *</label>
+            <input
+              type="email"
+              id="reg-email"
+              name="email"
+              autocomplete="email"
+              required
+              placeholder="example@gmail.com"
+            />
+            <small id="reg-domain-hint" class="field-helper-note">
+              Students may use public domains (gmail.com, yahoo.com, outlook.com) or university domains (.edu, .edu.np).
+            </small>
+          </div>
+
+          <!-- Student-Only Date of Birth (dd/mm/yyyy) Field (Hidden for Organizations) -->
+          <div id="reg-dob-group" class="form-group">
+            <label for="reg-dob">Date of Birth (dd/mm/yyyy) *</label>
+            <div class="dob-picker-wrapper">
+              <input
+                type="text"
+                id="reg-dob"
+                name="dob"
+                required
+                maxlength="10"
+                autocomplete="bday"
+                placeholder="dd/mm/yyyy"
+                pattern="^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}$"
+                title="Please enter your Date of Birth in dd/mm/yyyy format."
+                oninput="formatDobMask(this)"
+              />
+              <input
+                type="date"
+                id="reg-dob-native"
+                class="dob-native-input"
+                aria-label="Pick Date of Birth from Calendar"
+                onchange="syncDobFromNativePicker(this)"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-phone">Phone Number *</label>
+            <input
+              type="tel"
+              id="reg-phone"
+              name="phone"
+              required
+              maxlength="17"
+              autocomplete="tel"
+              placeholder="(+977) 9848262163"
+              oninput="enforceNepaliPhoneInput(this)"
+            />
+            <small class="field-helper-note">
+              Format: Optional (+977) prefix followed by exactly 10 digits (e.g. (+977) 9848262163).
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password">Password *</label>
+            <input
+              type="password"
+              id="reg-password"
+              name="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              pattern="(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}"
+              title="Password must be at least 8 characters and include at least one number and one special symbol."
+              placeholder="Min. 8 chars, 1 number &amp; 1 special symbol"
+            />
+            <small class="field-helper-note">
+              Minimum 8 characters with at least 1 number (0-9) and 1 special symbol (!@#$%^&amp;*).
+            </small>
+          </div>
+
+          <button type="submit" id="register-submit-btn" class="btn-primary btn-full auth-submit-btn">
+            Create Account
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedLoginRole = 'Student';
+
+    const NEPALI_PHONE_CLIENT_REGEX = /^(?:\(\+977\)\s*|\+977[\s\-]?)?([0-9]{10})$/;
+    const DOB_CLIENT_REGEX = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/([0-9]{4})$/;
+
+    function resetAllAuthForms(preserveEmail = '') {
+      const loginForm = document.getElementById('login-form');
+      const registerForm = document.getElementById('register-form');
+      if (loginForm) loginForm.reset();
+      if (registerForm) registerForm.reset();
+
+      const loginEmail = document.getElementById('login-email');
+      const loginPw = document.getElementById('login-password');
+      const regName = document.getElementById('reg-name');
+      const regEmail = document.getElementById('reg-email');
+      const regDob = document.getElementById('reg-dob');
+      const regDobNative = document.getElementById('reg-dob-native');
+      const regPhone = document.getElementById('reg-phone');
+      const regPw = document.getElementById('reg-password');
+      const regRole = document.getElementById('reg-role');
+
+      if (loginEmail) loginEmail.value = preserveEmail || '';
+      if (loginPw) loginPw.value = '';
+      if (regName) regName.value = '';
+      if (regEmail) regEmail.value = '';
+      if (regDob) regDob.value = '';
+      if (regDobNative) regDobNative.value = '';
+      if (regPhone) regPhone.value = '';
+      if (regPw) regPw.value = '';
+      if (regRole) regRole.value = 'Student';
+
+      handleRegisterRoleChange();
+    }
+
+    // Security Isolation on Logout while preserving Native Browser Password Manager Autofill
+    window.addEventListener('pageshow', () => {
+      let logoutEmail = '';
+      try {
+        logoutEmail = sessionStorage.getItem('shareloop_last_logout_email') || '';
+        sessionStorage.removeItem('shareloop_last_logout_email');
+      } catch (e) {
+        logoutEmail = '';
+      }
+
+      if (logoutEmail) {
+        const loginEmail = document.getElementById('login-email');
+        const loginPw = document.getElementById('login-password');
+        if (loginEmail) loginEmail.value = logoutEmail;
+        if (loginPw) loginPw.value = '';
+      }
+
+      const registerForm = document.getElementById('register-form');
+      if (registerForm) registerForm.reset();
+      handleRegisterRoleChange();
+    });
+
+    function selectLoginRole(role) {
+      // Highlights the active role button WITHOUT altering or clearing typed or autofilled email/password fields
+      selectedLoginRole = role === 'Organization' ? 'Organization' : 'Student';
+      const studentBtn = document.getElementById('role-btn-student');
+      const orgBtn = document.getElementById('role-btn-organization');
+
+      if (studentBtn && orgBtn) {
+        if (selectedLoginRole === 'Student') {
+          studentBtn.classList.add('active');
+          orgBtn.classList.remove('active');
+        } else {
+          orgBtn.classList.add('active');
+          studentBtn.classList.remove('active');
+        }
+      }
+    }
+
+    function switchAuthTab(mode) {
+      const loginForm = document.getElementById('login-form');
+      const registerForm = document.getElementById('register-form');
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const alertBox = document.getElementById('auth-alert');
+
+      alertBox.classList.add('hidden');
+
+      if (mode === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+      } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        tabLogin.classList.remove('active');
+        tabRegister.classList.add('active');
+      }
+    }
+
+    function handleRegisterRoleChange() {
+      const role = document.getElementById('reg-role').value;
+      const emailInput = document.getElementById('reg-email');
+      const hint = document.getElementById('reg-domain-hint');
+      const dobGroup = document.getElementById('reg-dob-group');
+      const dobInput = document.getElementById('reg-dob');
+
+      if (role === 'Organization') {
+        emailInput.placeholder = 'contact@abc.org';
+        hint.textContent =
+          'Organizations must register using an official domain ending in .org (e.g. contact@abc.org).';
+        hint.style.color = '#1b3b2b';
+        if (dobGroup) dobGroup.classList.add('hidden');
+        if (dobInput) {
+          dobInput.required = false;
+          dobInput.value = '';
+        }
+      } else {
+        emailInput.placeholder = 'example@gmail.com';
+        hint.textContent =
+          'Students may use public domains (gmail.com, yahoo.com, outlook.com) or university domains (.edu, .edu.np).';
+        hint.style.color = '#6b7280';
+        if (dobGroup) dobGroup.classList.remove('hidden');
+        if (dobInput) {
+          dobInput.required = true;
+        }
+      }
+    }
+
+    function formatDobMask(inputEl) {
+      const digits = inputEl.value.replace(/\D/g, '').slice(0, 8);
+      let formatted = '';
+      if (digits.length > 0) {
+        formatted += digits.substring(0, 2);
+      }
+      if (digits.length >= 3) {
+        formatted += '/' + digits.substring(2, 4);
+      }
+      if (digits.length >= 5) {
+        formatted += '/' + digits.substring(4, 8);
+      }
+      inputEl.value = formatted;
+    }
+
+    function syncDobFromNativePicker(dateInputEl) {
+      const val = dateInputEl.value;
+      if (!val) return;
+      const parts = val.split('-');
+      if (parts.length === 3) {
+        const dobText = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        const textInput = document.getElementById('reg-dob');
+        if (textInput) textInput.value = dobText;
+      }
+    }
+
+    function enforceNepaliPhoneInput(inputEl) {
+      let raw = inputEl.value;
+      const trimmed = raw.trimStart();
+      if (trimmed.startsWith('(+977)')) {
+        const afterPrefix = trimmed.slice(6).replace(/\D/g, '').slice(0, 10);
+        inputEl.value = afterPrefix.length > 0 ? `(+977) ${afterPrefix}` : '(+977) ';
+      } else if (trimmed.startsWith('+977')) {
+        const afterPrefix = trimmed.slice(4).replace(/\D/g, '').slice(0, 10);
+        inputEl.value = afterPrefix.length > 0 ? `(+977) ${afterPrefix}` : '(+977) ';
+      } else {
+        const digitsOnly = raw.replace(/\D/g, '').slice(0, 10);
+        inputEl.value = digitsOnly;
+      }
+    }
+
+    function showAuthAlert(message, isError = true) {
+      const alertBox = document.getElementById('auth-alert');
+      alertBox.textContent = message;
+      alertBox.className = isError ? 'auth-alert error' : 'auth-alert success';
+      alertBox.classList.remove('hidden');
+    }
+
+    function showAuthOverlayModal(title, message, isError = true) {
+      const backdrop = document.getElementById('auth-modal-backdrop');
+      const heading = document.getElementById('auth-modal-heading');
+      const body = document.getElementById('auth-modal-body');
+      const iconBox = document.getElementById('auth-modal-icon');
+
+      heading.textContent = title;
+      body.textContent = message;
+
+      if (isError) {
+        iconBox.className = 'modal-icon-circle error';
+        iconBox.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        `;
+      } else {
+        iconBox.className = 'modal-icon-circle success';
+        iconBox.innerHTML = `
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        `;
+      }
+
+      backdrop.classList.remove('hidden');
+    }
+
+    function closeAuthOverlayModal() {
+      const backdrop = document.getElementById('auth-modal-backdrop');
+      if (backdrop) {
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    function validateClientPassword(pw) {
+      if (!pw || pw.length < 8) {
+        return 'Password must be at least 8 characters long.';
+      }
+      if (!/[0-9]/.test(pw)) {
+        return 'Password must contain at least one numeric character (0-9).';
+      }
+      if (!/[^A-Za-z0-9]/.test(pw)) {
+        return 'Password must contain at least one special symbol.';
+      }
+      return null;
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      const btn = document.getElementById('login-submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+
+      const payload = {
+        email: document.getElementById('login-email').value.trim(),
+        password: document.getElementById('login-password').value,
+        selected_role: selectedLoginRole
+      };
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Unable to sign in.');
+        }
+        window.location.href = '/';
+      } catch (err) {
+        showAuthAlert(err.message, true);
+        btn.disabled = false;
+        btn.textContent = 'Sign In to ShareLoop';
+      }
+    }
+
+    async function handleRegister(event) {
+      event.preventDefault();
+      const role = document.getElementById('reg-role').value;
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim().toLowerCase();
+      const dob = document.getElementById('reg-dob').value.trim();
+      const phone = document.getElementById('reg-phone').value.trim();
+      const password = document.getElementById('reg-password').value;
+
+      if (role === 'Organization') {
+        const domainPart = email.includes('@') ? email.split('@')[1].trim().toLowerCase() : '';
+        if (!domainPart.endsWith('.org')) {
+          const orgDomainErr =
+            'Registration Rejected: Organizations must register using an official domain ending in .org';
+          showAuthAlert(orgDomainErr, true);
+          showAuthOverlayModal('Registration Rejected', orgDomainErr, true);
+          return;
+        }
+      }
+
+      if (role === 'Student') {
+        if (!DOB_CLIENT_REGEX.test(dob)) {
+          const dobErr = 'Please enter a valid Date of Birth in dd/mm/yyyy format.';
+          showAuthAlert(dobErr, true);
+          showAuthOverlayModal('Date of Birth Required', dobErr, true);
+          return;
+        }
+      }
+
+      if (!NEPALI_PHONE_CLIENT_REGEX.test(phone)) {
+        const phoneErr =
+          'Please enter a valid Nepali phone number: optional (+977) prefix followed by exactly 10 digits (e.g. (+977) 9848262163).';
+        showAuthAlert(phoneErr, true);
+        showAuthOverlayModal('Invalid Phone Number', phoneErr, true);
+        return;
+      }
+
+      const pwError = validateClientPassword(password);
+      if (pwError) {
+        showAuthAlert(pwError, true);
+        showAuthOverlayModal('Password Requirement', pwError, true);
+        return;
+      }
+
+      const btn = document.getElementById('register-submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+
+      const payload = {
+        name,
+        email,
+        phone,
+        dob: role === 'Student' ? dob : '',
+        role,
+        password
+      };
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const errMsg = data.error || 'Registration failed.';
+          showAuthAlert(errMsg, true);
+          showAuthOverlayModal('Registration Rejected', errMsg, true);
+          return;
+        }
+
+        // Form Reset Enforcement: Clear all input fields immediately after successful registration
+        resetAllAuthForms('');
+        switchAuthTab('login');
+
+        if (role === 'Organization') {
+          const orgMsg =
+            data.message ||
+            'Account Created! Your registration is successful. Because you signed up as an “Organization”, our administrative team needs to verify your domain and details before you can access the dashboard. We will email you at your registered address as soon as your account is approved. This usually takes less than 24 hours. If you don\'t see our email within that time, please check your spam folder. For any further questions or information, feel free to reach out to us at support@shareloop.io or admin@shareloop.io.';
+          showAuthOverlayModal('Account Created!', orgMsg, false);
+        } else {
+          const studentMsg =
+            data.message ||
+            'Registration successful! Your account has been created. You can now log in immediately.';
+          showAuthOverlayModal('Registration Successful', studentMsg, false);
+        }
+      } catch (err) {
+        showAuthAlert(err.message, true);
+        showAuthOverlayModal('Registration Error', err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    }
+  </script>
+</body>
+</html>

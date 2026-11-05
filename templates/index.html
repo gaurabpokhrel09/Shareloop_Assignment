@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShareLoop — Peer-to-Peer Textbook &amp; Resource Exchange</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=10" />
+</head>
+<body>
+  <!-- Toast Notification -->
+  <div id="toast-notification" class="toast hidden"></div>
+
+  <!-- Custom Safe Operational Confirmation Modal -->
+  <div id="confirm-modal-backdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-message">
+    <div class="modal-card">
+      <div class="modal-icon-circle">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <h3 id="confirm-modal-message" class="modal-title">Do you want to proceed?</h3>
+      <div class="modal-actions">
+        <button type="button" class="btn-outline" onclick="closeConfirmModal()">Cancel</button>
+        <button type="button" id="confirm-modal-accept-btn" class="btn-danger" onclick="executeConfirmedAction()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  {% if current_user.role == 'Student' %}
+  <!-- Center-Aligned Pop-Up Dialog Modal: Broadcast Request to Campus Feed -->
+  <div id="feed-create-modal-backdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="feed-create-modal-heading" onclick="if(event.target === this) closeFeedCreateModal()">
+    <div class="modal-card modal-card-wide">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; text-align: left; margin-bottom: 12px;">
+        <div>
+          <h3 id="feed-create-modal-heading" class="modal-title" style="margin-bottom: 4px;">Broadcast What You Need</h3>
+        </div>
+        <button type="button" class="btn-outline btn-sm" onclick="closeFeedCreateModal()">&times; Close</button>
+      </div>
+
+      <p style="font-size: 0.88rem; color: #4B5563; margin-bottom: 20px; line-height: 1.55; text-align: left;">
+        Can't find an item in Browse Exchange? Post what you're looking for so fellow students on campus can respond with physical proof.
+      </p>
+
+      <form id="feed-create-form" onsubmit="handleCreateFeedPost(event)" style="text-align: left;">
+        <div class="form-group">
+          <label for="feed-title">Requested Item Title *</label>
+          <input
+            type="text"
+            id="feed-title"
+            required
+            placeholder="e.g. TI-84 Plus Calculator or CS 144 Textbook"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="feed-category-search">Category (Type to Search or Scroll) *</label>
+          <div class="searchable-combobox" id="feed-category-combobox">
+            <input type="hidden" id="feed-category" value="Science, Tech & Engineering (STEM)" />
+            <div class="combobox-input-wrap">
+              <input
+                type="text"
+                id="feed-category-search"
+                class="combobox-search-input"
+                value="Science, Tech & Engineering (STEM)"
+                placeholder="Type to search or scroll categories..."
+                autocomplete="off"
+                onfocus="openCategoryCombobox('feed')"
+                oninput="filterCategoryCombobox('feed', this.value)"
+              />
+              <button type="button" class="combobox-chevron-btn" onclick="toggleCategoryCombobox('feed')" tabindex="-1">
+                &#9662;
+              </button>
+            </div>
+            <div id="feed-category-dropdown" class="combobox-dropdown hidden"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="feed-description">Details &amp; Pickup Preferences</label>
+          <textarea
+            id="feed-description"
+            rows="4"
+            placeholder="Describe the edition, course code, how long you need to borrow or swap it, and preferred campus meetup spots..."
+          ></textarea>
+        </div>
+
+        <button type="submit" id="feed-create-submit-btn" class="btn-primary btn-full">
+          Broadcast Request to Campus Feed
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Student Feed Response Modal ("I Have This" Multipart File Upload Wizard) -->
+  <div id="feed-respond-modal-backdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="feed-respond-modal-heading" onclick="if(event.target === this) closeFeedRespondModal()">
+    <div class="modal-card modal-card-wide">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; text-align: left; margin-bottom: 14px;">
+        <div>
+          <h3 id="feed-respond-modal-heading" class="modal-title" style="margin-bottom: 4px;">Respond to Student Request</h3>
+          <p id="feed-respond-target-sub" style="font-size: 0.84rem; color: #64748b;">
+            Upload direct proof photos from your local device to verify you physically have this item and open a live pickup chat.
+          </p>
+        </div>
+        <button type="button" class="btn-outline btn-sm" onclick="closeFeedRespondModal()">&times; Close</button>
+      </div>
+
+      <form id="feed-respond-form" enctype="multipart/form-data" onsubmit="handleFeedRespondSubmit(event)" style="text-align: left;">
+        <input type="hidden" id="feed-respond-id" value="" />
+        <input type="hidden" id="feed-respond-category" value="Science, Tech & Engineering (STEM)" />
+
+        <div class="form-group">
+          <label for="feed-res-title">Resource Title *</label>
+          <input
+            type="text"
+            id="feed-res-title"
+            name="title"
+            required
+            placeholder="e.g. TI-84 Plus CE Graphing Calculator"
+          />
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="feed-res-condition">Item Condition *</label>
+            <select id="feed-res-condition" name="condition" required>
+              <option value="New / Like New">New / Like New</option>
+              <option value="Good" selected>Good</option>
+              <option value="Fair">Fair</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="feed-res-exchange">Exchange Type *</label>
+            <select id="feed-res-exchange" name="exchange_type" required>
+              <option value="Lend">Lend (Borrow for Term)</option>
+              <option value="Donate">Donate (Free to Keep)</option>
+              <option value="Swap">Swap</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dual-Photo Mandatory Upload Grid (Slot 1 & Slot 2 Mandatory, Slot 3 & Slot 4 Optional) -->
+        <div class="form-group">
+          <label>Upload Direct Device Proof Photos (Slots 1 &amp; 2 Mandatory) *</label>
+          <p style="font-size: 0.78rem; color: #64748b; margin-bottom: 10px;">
+            Both <strong>1. Main Photo (Primary)</strong> and <strong>2. Back / Side View</strong> are mandatory. Slots 3 and 4 are optional.
+          </p>
+          <div class="photo-slots-grid">
+            <!-- Slot 1 (Mandatory) -->
+            <div class="photo-slot-box mandatory-slot">
+              <strong id="feed-photo-label-1" class="photo-slot-title">1. Main Photo (Primary) *</strong>
+              <span class="slot-req-badge">Mandatory</span>
+              <img id="feed-preview-front-cover" src="" alt="Main Photo Preview" class="hidden photo-slot-preview" />
+              <input
+                type="file"
+                id="feed-file-front-cover"
+                name="front_cover"
+                required
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onchange="previewSelectedFile(this, 'feed-preview-front-cover'); updateFeedRespondSubmitState();"
+                class="photo-slot-input"
+              />
+            </div>
+
+            <!-- Slot 2 (Mandatory) -->
+            <div class="photo-slot-box mandatory-slot">
+              <strong id="feed-photo-label-2" class="photo-slot-title">2. Back / Side View *</strong>
+              <span class="slot-req-badge">Mandatory</span>
+              <img id="feed-preview-back-cover" src="" alt="Back / Side View Preview" class="hidden photo-slot-preview" />
+              <input
+                type="file"
+                id="feed-file-back-cover"
+                name="back_cover"
+                required
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onchange="previewSelectedFile(this, 'feed-preview-back-cover'); updateFeedRespondSubmitState();"
+                class="photo-slot-input"
+              />
+            </div>
+
+            <!-- Slot 3 (Optional) -->
+            <div class="photo-slot-box">
+              <strong id="feed-photo-label-3" class="photo-slot-title">3. Detail / Defect Zoom</strong>
+              <span class="slot-opt-badge">Optional</span>
+              <img id="feed-preview-spine" src="" alt="Detail / Defect Zoom Preview" class="hidden photo-slot-preview" />
+              <input
+                type="file"
+                id="feed-file-spine"
+                name="spine"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onchange="previewSelectedFile(this, 'feed-preview-spine')"
+                class="photo-slot-input"
+              />
+            </div>
+
+            <!-- Slot 4 (Optional) -->
+            <div class="photo-slot-box">
+              <strong id="feed-photo-label-4" class="photo-slot-title">4. Additional View</strong>
+              <span class="slot-opt-badge">Optional</span>
+              <img id="feed-preview-inside-pages" src="" alt="Additional View Preview" class="hidden photo-slot-preview" />
+              <input
+                type="file"
+                id="feed-file-inside-pages"
+                name="inside_pages"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onchange="previewSelectedFile(this, 'feed-preview-inside-pages')"
+                class="photo-slot-input"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="justify-content: flex-end; margin-top: 16px;">
+          <button type="button" class="btn-outline" onclick="closeFeedRespondModal()">Cancel</button>
+          <button type="submit" id="feed-respond-submit-btn" class="btn-primary">
+            Upload Proof &amp; Start Pickup Chat
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Top Global Header (Anchored Fixed/Sticky at Top) -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button type="button" class="brand-btn" onclick="navigateTo('{% if current_user.role == 'Admin' %}admin-overview{% else %}browse{% endif %}')">
+        <div class="brand-logo-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+        </div>
+        <span class="brand-title">ShareLoop</span>
+      </button>
+
+      <span id="topbar-role-badge" class="badge {% if current_user.role == 'Admin' %}badge-blue{% elif current_user.role == 'Organization' %}badge-amber{% else %}badge-green{% endif %}" style="margin-left: 12px;">
+        {{ current_user.role or 'Student' }} Portal
+      </span>
+    </div>
+
+    <div id="topbar-search-container" class="topbar-search">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input
+        type="search"
+        id="global-search-input"
+        placeholder="Search books, lab gear, author, or course code (e.g. CS 140)..."
+        oninput="handleSearchInput()"
+      />
+    </div>
+
+    <div class="topbar-right">
+      <button type="button" class="user-pill" onclick="navigateTo('profile')">
+        <span id="topbar-user-initials" class="avatar-circle">{{ current_user.initials }}</span>
+        <span id="topbar-user-name" class="user-pill-name">{{ current_user.name }}</span>
+      </button>
+
+      <button type="button" class="btn-outline btn-sm" onclick="requestLogoutConfirmation()">
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace Shell: Fixed/Sticky Left Sidebar + Dynamic View Content -->
+  <div class="app-shell">
+    <!-- Left Sidebar Navigation (Fixed & Anchored Across All Portal Modes) -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        {% if current_user.role == 'Admin' %}
+        <!-- ================================================================ -->
+        <!-- DEDICATED ADMIN SIDEBAR PANELS (PLAIN TEXT, NO EMOJIS)           -->
+        <!-- ================================================================ -->
+        <button type="button" id="nav-admin-overview" class="nav-item active" onclick="navigateTo('admin-overview')">
+          <span>Overview Metrics</span>
+        </button>
+
+        <button type="button" id="nav-admin-resources" class="nav-item" onclick="handleSidebarNavWithDrawer('admin-resources', 'admin')">
+          <span>Resource Feed</span>
+        </button>
+
+        <button type="button" id="nav-admin-transactions" class="nav-item" onclick="navigateTo('admin-transactions')">
+          <span>Transactions</span>
+        </button>
+
+        <button type="button" id="nav-admin-active-accounts" class="nav-item" onclick="navigateTo('admin-active-accounts')">
+          <span>Active Accounts</span>
+        </button>
+
+        <button type="button" id="nav-admin-pending-accounts" class="nav-item" onclick="navigateTo('admin-pending-accounts')">
+          <span>Account Approvals</span>
+          <span id="sidebar-pending-badge" class="badge badge-amber hidden" style="margin-left: auto; font-size: 0.7rem; padding: 0.1rem 0.45rem;">0</span>
+        </button>
+        {% else %}
+        <!-- ================================================================ -->
+        <!-- STUDENT & ORGANIZATION SIDEBAR PANELS                            -->
+        <!-- ================================================================ -->
+        <button type="button" id="nav-browse" class="nav-item active" onclick="handleSidebarNavWithDrawer('browse', 'browse')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span id="nav-browse-label">{% if current_user.role == 'Organization' %}Listings{% else %}Browse Exchange{% endif %}</span>
+        </button>
+
+        {% if current_user.role == 'Student' %}
+        <button type="button" id="nav-feed" class="nav-item" onclick="navigateTo('feed')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Request Feed</span>
+        </button>
+        {% endif %}
+
+        <button type="button" id="nav-my-listings" class="nav-item {% if current_user.role == 'Organization' %}hidden{% endif %}" onclick="navigateTo('my-listings')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          <span>My Listings</span>
+        </button>
+
+        <button type="button" id="nav-my-requests" class="nav-item" onclick="navigateTo('my-requests')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span>My Requests</span>
+        </button>
+
+        <button type="button" id="nav-incoming" class="nav-item {% if current_user.role == 'Organization' %}hidden{% endif %}" onclick="navigateTo('incoming')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+          </svg>
+          <span>Incoming Requests</span>
+        </button>
+        {% endif %}
+
+        <!-- Separated Profile & Security Sidebar Pages -->
+        <div class="sidebar-section-divider">ACCOUNT &amp; SETTINGS</div>
+
+        <button type="button" id="nav-profile" class="nav-item" onclick="navigateTo('profile')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>Personal Details</span>
+        </button>
+
+        <button type="button" id="nav-security" class="nav-item" onclick="navigateTo('security')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Account Security</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="campus-badge-card">
+          <strong id="sidebar-role-title">{{ current_user.role or 'Student' }} Account</strong>
+          <span id="sidebar-university">{{ current_user.university or '' }}</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Dynamic View Area -->
+    <main class="main-content">
+      {% if current_user.role == 'Admin' %}
+      <!-- ================================================================ -->
+      <!-- ADMIN VIEW 1: OVERVIEW METRICS (Single-Line KPIs + 3 Charts)     -->
+      <!-- ================================================================ -->
+      <section id="view-admin-overview" class="view-section">
+        <div class="page-header">
+          <div>
+            <h1>Overview Metrics</h1>
+          </div>
+          <button type="button" class="btn-outline" onclick="loadAdminOverview()">
+            Refresh Metrics
+          </button>
+        </div>
+
+        <!-- 4 Core KPI Data Channel Cards (Single-Line Flexbox Gauge) -->
+        <div id="admin-overview-stats-grid" class="admin-metrics-grid"></div>
+
+        <!-- Interactive Analytics Charts Grid -->
+        <div class="admin-charts-grid">
+          <!-- Chart 1: Exchanges Over Time (Weekly Line Graph + Month Filter Dropdown) -->
+          <div class="card-form admin-chart-card">
+            <div class="admin-chart-header">
+              <div>
+                <span class="section-eyebrow">TIMELINE ANALYTICS</span>
+                <h3>Exchanges Over Time</h3>
+                <p>Completed handovers tracked per week.</p>
+              </div>
+              <div class="chart-filter-control">
+                <label for="admin-chart-month-select" class="sr-only">Filter Month</label>
+                <select id="admin-chart-month-select" onchange="handleOverviewMonthChange(this.value)">
+                  <option value="ALL">All Months</option>
+                </select>
+              </div>
+            </div>
+            <div id="admin-line-chart-container" class="admin-line-chart-box"></div>
+          </div>
+
+          <!-- Chart 2: Exchange Types Breakdown (Doughnut / Pie Chart) -->
+          <div class="card-form admin-chart-card">
+            <div class="admin-chart-header">
+              <div>
+                <span class="section-eyebrow">TRANSACTION RATIO</span>
+                <h3>Exchange Types Breakdown</h3>
+                <p>Distribution of active Resource Listings by exchange type.</p>
+              </div>
+            </div>
+            <div id="admin-doughnut-chart-container" class="admin-doughnut-box"></div>
+          </div>
+        </div>
+
+        <!-- Chart 3: Top Categories Shared (Horizontal Progress Bar List) -->
+        <div class="card-form admin-chart-card" style="max-width: 100%; margin-top: 1.25rem;">
+          <div class="admin-chart-header">
+            <div>
+              <span class="section-eyebrow">TAXONOMY DISTRIBUTION</span>
+              <h3>Top Categories Shared</h3>
+              <p>Volume distribution of active Resource Listings across structured categories.</p>
+            </div>
+          </div>
+          <div id="admin-top-categories-container" class="admin-category-bars-list"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- ADMIN VIEW 2: RESOURCE FEED MANAGEMENT PANEL                     -->
+      <!-- ================================================================ -->
+      <section id="view-admin-resources" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Resource Feed</h1>
+            <p>Toggle availability or remove inappropriate listings across the platform.</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <button
+              type="button"
+              id="admin-filter-toggle-btn"
+              class="btn-outline"
+              onclick="toggleFilterDrawer('admin')"
+            >
+              Show Filters
+            </button>
+            <button type="button" class="btn-outline" onclick="loadAdminResources()">
+              Refresh Resource Feed
+            </button>
+          </div>
+        </div>
+
+        <div id="admin-resources-layout-container" class="browse-layout drawer-closed">
+          <!-- Left: Admin Resource Rows (Inspect & Delete only) -->
+          <div class="browse-grid-wrapper">
+            <div id="admin-resources-container" class="stack-list"></div>
+          </div>
+
+          <!-- Right: On-Demand Multi-Level Searchable Category Checklist Drawer (Hidden by Default) -->
+          <aside id="admin-filter-drawer" class="filter-panel filter-drawer hidden">
+            <div class="filter-header">
+              <h3>Filter Listings</h3>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="link-btn" onclick="resetAdminResourceFilters()">Reset</button>
+                <button type="button" class="link-btn" onclick="toggleFilterDrawer('admin', false)">&times; Hide</button>
+              </div>
+            </div>
+
+            <div class="filter-section">
+              <h4>EXCHANGE TYPE</h4>
+              <label class="checkbox-label">
+                <input type="checkbox" class="admin-filter-exchange" value="Lend" onchange="loadAdminResources()" />
+                <span>Lend (Borrow)</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="admin-filter-exchange" value="Donate" onchange="loadAdminResources()" />
+                <span>Donate (Free)</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="admin-filter-exchange" value="Swap" onchange="loadAdminResources()" />
+                <span>Swap</span>
+              </label>
+            </div>
+
+            <div class="filter-section">
+              <h4>CATEGORY</h4>
+              <div class="category-search-box">
+                <input
+                  type="search"
+                  id="admin-filter-category-search"
+                  placeholder="Type to search categories..."
+                  oninput="filterAdminSidebarCategoryList(this.value)"
+                />
+              </div>
+
+              <div id="admin-filter-category-scrollbox" class="category-filter-scrollbox">
+                <!-- Group 1: School Education -->
+                <div class="category-filter-group" data-group="School Education">
+                  <div class="category-group-heading">School Education</div>
+                  <label class="checkbox-label category-filter-item" data-label="Primary (Class 1-5) School Education">
+                    <input type="checkbox" class="admin-filter-category" value="Primary (Class 1-5)" onchange="loadAdminResources()" />
+                    <span>Primary (Class 1-5)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Lower Secondary (Class 6-8) School Education">
+                    <input type="checkbox" class="admin-filter-category" value="Lower Secondary (Class 6-8)" onchange="loadAdminResources()" />
+                    <span>Lower Secondary (Class 6-8)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Secondary (9-10) School Education">
+                    <input type="checkbox" class="admin-filter-category" value="Secondary (9-10)" onchange="loadAdminResources()" />
+                    <span>Secondary (9-10)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Higher Secondary (Class 11-12) School Education">
+                    <input type="checkbox" class="admin-filter-category" value="Higher Secondary (Class 11-12)" onchange="loadAdminResources()" />
+                    <span>Higher Secondary (Class 11-12)</span>
+                  </label>
+                </div>
+
+                <!-- Group 2: Higher Education -->
+                <div class="category-filter-group" data-group="Higher Education">
+                  <div class="category-group-heading">Higher Education</div>
+                  <label class="checkbox-label category-filter-item" data-label="Science, Tech & Engineering (STEM) Higher Education">
+                    <input type="checkbox" class="admin-filter-category" value="Science, Tech & Engineering (STEM)" onchange="loadAdminResources()" />
+                    <span>Science, Tech &amp; Engineering (STEM)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Business, Management & Economics Higher Education">
+                    <input type="checkbox" class="admin-filter-category" value="Business, Management & Economics" onchange="loadAdminResources()" />
+                    <span>Business, Management &amp; Economics</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Humanities, Arts & Social Sciences Higher Education">
+                    <input type="checkbox" class="admin-filter-category" value="Humanities, Arts & Social Sciences" onchange="loadAdminResources()" />
+                    <span>Humanities, Arts &amp; Social Sciences</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Medicine, Health & Life Sciences Higher Education">
+                    <input type="checkbox" class="admin-filter-category" value="Medicine, Health & Life Sciences" onchange="loadAdminResources()" />
+                    <span>Medicine, Health &amp; Life Sciences</span>
+                  </label>
+                </div>
+
+                <!-- Group 3: Equipment & Gear -->
+                <div class="category-filter-group" data-group="Equipment & Gear">
+                  <div class="category-group-heading">Equipment &amp; Gear</div>
+                  <label class="checkbox-label category-filter-item" data-label="Lab Gear & Equipment">
+                    <input type="checkbox" class="admin-filter-category" value="Lab Gear & Equipment" onchange="loadAdminResources()" />
+                    <span>Lab Gear &amp; Equipment</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Stationeries & School Supplies Equipment & Gear">
+                    <input type="checkbox" class="admin-filter-category" value="Stationeries & School Supplies" onchange="loadAdminResources()" />
+                    <span>Stationeries &amp; School Supplies</span>
+                  </label>
+                </div>
+
+                <!-- Group 4: Others -->
+                <div class="category-filter-group" data-group="Others">
+                  <div class="category-group-heading">Others</div>
+                  <label class="checkbox-label category-filter-item" data-label="Others Novels Stories Miscellaneous">
+                    <input type="checkbox" class="admin-filter-category" value="Others" onchange="loadAdminResources()" />
+                    <span>Others</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="filter-section">
+              <h4>CONDITION</h4>
+              <label class="checkbox-label">
+                <input type="checkbox" class="admin-filter-condition" value="New / Like New" onchange="loadAdminResources()" />
+                <span>New / Like New</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="admin-filter-condition" value="Good" onchange="loadAdminResources()" />
+                <span>Good</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="admin-filter-condition" value="Fair" onchange="loadAdminResources()" />
+                <span>Fair</span>
+              </label>
+            </div>
+
+            <div class="filter-section filter-availability-row">
+              <div>
+                <strong>Available Now Only</strong>
+                <small>Hide lent or handed-over items</small>
+              </div>
+              <input
+                type="checkbox"
+                id="admin-filter-available-only"
+                onchange="loadAdminResources()"
+              />
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- ADMIN VIEW 3: TRANSACTIONS & EXCHANGE REQUESTS PANEL             -->
+      <!-- ================================================================ -->
+      <section id="view-admin-transactions" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Transactions</h1>
+            <p>Inspect items transaction status.</p>
+          </div>
+          <button type="button" class="btn-outline" onclick="loadAdminTransactions()">
+            Refresh Transactions
+          </button>
+        </div>
+
+        <!-- Static Status Selection Filter Tags -->
+        <div id="admin-tx-status-filters" class="status-filter-tags-bar">
+          <button type="button" class="status-filter-tag active" data-status="All" onclick="selectAdminTransactionStatusFilter('All')">
+            All Transactions
+          </button>
+          <button type="button" class="status-filter-tag" data-status="Pending" onclick="selectAdminTransactionStatusFilter('Pending')">
+            Pending
+          </button>
+          <button type="button" class="status-filter-tag" data-status="Accepted" onclick="selectAdminTransactionStatusFilter('Accepted')">
+            Accepted
+          </button>
+          <button type="button" class="status-filter-tag" data-status="Handover" onclick="selectAdminTransactionStatusFilter('Handover')">
+            Handover
+          </button>
+          <button type="button" class="status-filter-tag" data-status="Cancelled" onclick="selectAdminTransactionStatusFilter('Cancelled')">
+            Cancelled
+          </button>
+        </div>
+
+        <div id="admin-transactions-container" class="stack-list"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- ADMIN VIEW 4: ACTIVE ACCOUNTS (WITH ROLE TOGGLE SWITCHER)        -->
+      <!-- ================================================================ -->
+      <section id="view-admin-active-accounts" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Active Accounts</h1>
+            <p>Directory of active Students and verified Organization accounts.</p>
+          </div>
+          <button type="button" class="btn-outline" onclick="loadAdminActiveAccounts()">
+            Refresh Active Accounts
+          </button>
+        </div>
+
+        <!-- Role Toggle Switcher (State 1: Students only | State 2: Organizations only) -->
+        <div id="admin-active-role-toggle" class="status-filter-tags-bar" role="tablist" aria-label="Filter Active Accounts by Role">
+          <button
+            type="button"
+            id="active-role-tab-student"
+            class="status-filter-tag active"
+            data-role="Student"
+            onclick="selectAdminActiveAccountRoleFilter('Student')"
+          >
+            Students
+          </button>
+          <button
+            type="button"
+            id="active-role-tab-organization"
+            class="status-filter-tag"
+            data-role="Organization"
+            onclick="selectAdminActiveAccountRoleFilter('Organization')"
+          >
+            Organizations
+          </button>
+        </div>
+
+        <div id="admin-active-accounts-list" class="stack-list"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- ADMIN VIEW 5: ACCOUNT APPROVALS (Organization Approvals)         -->
+      <!-- ================================================================ -->
+      <section id="view-admin-pending-accounts" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Account Approvals</h1>
+            <p>Approve pending organization registration.</p>
+          </div>
+          <button type="button" class="btn-outline" onclick="loadAdminPendingAccounts()">
+            Refresh Approval Queue
+          </button>
+        </div>
+
+        <div id="admin-pending-accounts-list" class="stack-list"></div>
+      </section>
+
+      {% else %}
+      <!-- ================================================================ -->
+      <!-- VIEW 1: BROWSE EXCHANGE (Student & Organization Marketplace)     -->
+      <!-- ================================================================ -->
+      <section id="view-browse" class="view-section">
+        <div class="page-header">
+          <div>
+            <h1 id="browse-heading">{% if current_user.role == 'Organization' %}Listings{% else %}Browse Exchange{% endif %}</h1>
+            <p id="browse-subheading">
+              {% if current_user.role == 'Organization' %}
+              Browse and request donated textbooks and study resources for your organization.
+              {% else %}
+              Discover textbooks, lab gear, and equipment shared by students on campus.
+              {% endif %}
+            </p>
+          </div>
+          <div>
+            <button
+              type="button"
+              id="browse-filter-toggle-btn"
+              class="btn-outline"
+              onclick="toggleFilterDrawer('browse')"
+            >
+              Show Filters
+            </button>
+          </div>
+        </div>
+
+        <div id="browse-layout-container" class="browse-layout drawer-closed">
+          <!-- Resource Cards Grid -->
+          <div class="browse-grid-wrapper">
+            <div id="browse-items-grid" class="items-grid"></div>
+          </div>
+
+          <!-- Right On-Demand Multi-Select Filter Drawer (Hidden by Default) -->
+          <aside id="browse-filter-drawer" class="filter-panel filter-drawer hidden">
+            <div class="filter-header">
+              <h3>Filter Listings</h3>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="link-btn" onclick="resetAllFilters()">Reset</button>
+                <button type="button" class="link-btn" onclick="toggleFilterDrawer('browse', false)">&times; Hide</button>
+              </div>
+            </div>
+
+            <div class="filter-section">
+              <h4>EXCHANGE TYPE</h4>
+              <label id="filter-wrap-lend" class="checkbox-label {% if current_user.role == 'Organization' %}hidden{% endif %}">
+                <input type="checkbox" class="filter-exchange" value="Lend" onchange="loadBrowseItems()" />
+                <span>Lend (Borrow)</span>
+              </label>
+              <label id="filter-wrap-donate" class="checkbox-label">
+                <input
+                  type="checkbox"
+                  id="filter-exchange-donate"
+                  class="filter-exchange"
+                  value="Donate"
+                  {% if current_user.role == 'Organization' %}checked disabled{% endif %}
+                  onchange="loadBrowseItems()"
+                />
+                <span>Donate (Free)</span>
+              </label>
+              <label id="filter-wrap-swap" class="checkbox-label {% if current_user.role == 'Organization' %}hidden{% endif %}">
+                <input type="checkbox" class="filter-exchange" value="Swap" onchange="loadBrowseItems()" />
+                <span>Swap</span>
+              </label>
+            </div>
+
+            <!-- Structured Multi-Level Searchable & Scrollable Category Filter -->
+            <div class="filter-section">
+              <h4>CATEGORY</h4>
+              <div class="category-search-box">
+                <input
+                  type="search"
+                  id="filter-category-search"
+                  placeholder="Type to search categories..."
+                  oninput="filterSidebarCategoryList(this.value)"
+                />
+              </div>
+
+              <div id="filter-category-scrollbox" class="category-filter-scrollbox">
+                <!-- Group 1: School Education -->
+                <div class="category-filter-group" data-group="School Education">
+                  <div class="category-group-heading">School Education</div>
+                  <label class="checkbox-label category-filter-item" data-label="Primary (Class 1-5) School Education">
+                    <input type="checkbox" class="filter-category" value="Primary (Class 1-5)" onchange="loadBrowseItems()" />
+                    <span>Primary (Class 1-5)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Lower Secondary (Class 6-8) School Education">
+                    <input type="checkbox" class="filter-category" value="Lower Secondary (Class 6-8)" onchange="loadBrowseItems()" />
+                    <span>Lower Secondary (Class 6-8)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Secondary (9-10) School Education">
+                    <input type="checkbox" class="filter-category" value="Secondary (9-10)" onchange="loadBrowseItems()" />
+                    <span>Secondary (9-10)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Higher Secondary (Class 11-12) School Education">
+                    <input type="checkbox" class="filter-category" value="Higher Secondary (Class 11-12)" onchange="loadBrowseItems()" />
+                    <span>Higher Secondary (Class 11-12)</span>
+                  </label>
+                </div>
+
+                <!-- Group 2: Higher Education -->
+                <div class="category-filter-group" data-group="Higher Education">
+                  <div class="category-group-heading">Higher Education</div>
+                  <label class="checkbox-label category-filter-item" data-label="Science, Tech & Engineering (STEM) Higher Education">
+                    <input type="checkbox" class="filter-category" value="Science, Tech & Engineering (STEM)" onchange="loadBrowseItems()" />
+                    <span>Science, Tech &amp; Engineering (STEM)</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Business, Management & Economics Higher Education">
+                    <input type="checkbox" class="filter-category" value="Business, Management & Economics" onchange="loadBrowseItems()" />
+                    <span>Business, Management &amp; Economics</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Humanities, Arts & Social Sciences Higher Education">
+                    <input type="checkbox" class="filter-category" value="Humanities, Arts & Social Sciences" onchange="loadBrowseItems()" />
+                    <span>Humanities, Arts &amp; Social Sciences</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Medicine, Health & Life Sciences Higher Education">
+                    <input type="checkbox" class="filter-category" value="Medicine, Health & Life Sciences" onchange="loadBrowseItems()" />
+                    <span>Medicine, Health &amp; Life Sciences</span>
+                  </label>
+                </div>
+
+                <!-- Group 3: Equipment & Gear -->
+                <div class="category-filter-group" data-group="Equipment & Gear">
+                  <div class="category-group-heading">Equipment &amp; Gear</div>
+                  <label class="checkbox-label category-filter-item" data-label="Lab Gear & Equipment">
+                    <input type="checkbox" class="filter-category" value="Lab Gear & Equipment" onchange="loadBrowseItems()" />
+                    <span>Lab Gear &amp; Equipment</span>
+                  </label>
+                  <label class="checkbox-label category-filter-item" data-label="Stationeries & School Supplies Equipment & Gear">
+                    <input type="checkbox" class="filter-category" value="Stationeries & School Supplies" onchange="loadBrowseItems()" />
+                    <span>Stationeries &amp; School Supplies</span>
+                  </label>
+                </div>
+
+                <!-- Group 4: Others (At the very bottom) -->
+                <div class="category-filter-group" data-group="Others">
+                  <div class="category-group-heading">Others</div>
+                  <label class="checkbox-label category-filter-item" data-label="Others Novels Stories Miscellaneous">
+                    <input type="checkbox" class="filter-category" value="Others" onchange="loadBrowseItems()" />
+                    <span>Others</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="filter-section">
+              <h4>CONDITION</h4>
+              <label class="checkbox-label">
+                <input type="checkbox" class="filter-condition" value="New / Like New" onchange="loadBrowseItems()" />
+                <span>New / Like New</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="filter-condition" value="Good" onchange="loadBrowseItems()" />
+                <span>Good</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="filter-condition" value="Fair" onchange="loadBrowseItems()" />
+                <span>Fair</span>
+              </label>
+            </div>
+
+            <div class="filter-section filter-availability-row">
+              <div>
+                <strong>Available Now Only</strong>
+                <small>Hide lent or handed-over items</small>
+              </div>
+              <input
+                type="checkbox"
+                id="filter-available-only"
+                checked
+                onchange="loadBrowseItems()"
+              />
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 1B: STUDENT REQUEST FEED DASHBOARD (Role == 'Student' only) -->
+      <!-- ================================================================ -->
+      {% if current_user.role == 'Student' %}
+      <section id="view-feed" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Student Request Feed</h1>
+            <p>Broadcast textbooks, lab gear, or equipment you need — or help a peer by uploading direct proof photos from your device.</p>
+          </div>
+        </div>
+
+        <div class="feed-central-container">
+          <!-- Centralized Social-Media Style Status Composer Card -->
+          <div class="feed-composer-card" onclick="openFeedCreateModal()">
+            <span id="feed-composer-avatar" class="avatar-circle lg">{{ current_user.initials }}</span>
+            <input
+              type="text"
+              id="feed-composer-trigger-input"
+              class="feed-composer-input"
+              readonly
+              placeholder="What's on your mind, {{ current_user.first_name or (current_user.name.split(' ')[0] if current_user.name else 'Student') }}?"
+              onclick="event.stopPropagation(); openFeedCreateModal();"
+              onfocus="this.blur(); openFeedCreateModal();"
+            />
+          </div>
+
+          <!-- Chronological Stream of Active Campus Requests -->
+          <div class="feed-stream-column">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <div>
+                <h2 style="font-size: 1.1rem; font-weight: 700; color: #111827;">Active Campus Requests</h2>
+                <p style="font-size: 0.82rem; color: #64748b;">Click "I Have This" to upload device proof photos and start a pickup chat.</p>
+              </div>
+              <button type="button" class="btn-outline btn-sm" onclick="loadFeedWorkspace()">
+                Refresh Feed
+              </button>
+            </div>
+            <div id="feed-stream-container" class="stack-list"></div>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- ================================================================ -->
+      <!-- VIEW 3: MY LISTINGS (Student Only)                              -->
+      <!-- ================================================================ -->
+      {% if current_user.role == 'Student' %}
+      <section id="view-my-listings" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>My Listings</h1>
+            <p>Manage your listed textbooks, lab gear, and equipment.</p>
+          </div>
+          <button type="button" id="my-listings-add-btn" class="btn-primary" onclick="openAddResourceView()">
+            + Add Resource
+          </button>
+        </div>
+        <div id="my-listings-container" class="stack-list"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 4: ADD / EDIT STUDY RESOURCE FORM (Student Only)           -->
+      <!-- ================================================================ -->
+      <section id="view-add-resource" class="view-section hidden">
+        <button type="button" class="back-link" onclick="navigateTo('my-listings')">
+          &larr; Back to My Listings
+        </button>
+
+        <div class="page-header">
+          <div>
+            <h1 id="resource-form-title">Add a Study Resource</h1>
+            <p>Upload the photos and fill out the details below to list your item on portal.</p>
+          </div>
+        </div>
+
+        <form id="resource-form" class="card-form" enctype="multipart/form-data" onsubmit="handleSaveResource(event)">
+          <input type="hidden" id="res-id" value="" />
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="res-title">Resource Title *</label>
+              <input type="text" id="res-title" name="title" required placeholder="e.g. Operating System Concepts, 10th Edition" />
+            </div>
+
+            <div class="form-group">
+              <label for="res-author">Author or Manufacturer *</label>
+              <input type="text" id="res-author" name="author" required placeholder="e.g. Abraham Silberschatz / Tektronix" />
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="res-course">Course Code</label>
+              <input type="text" id="res-course" name="course_code" placeholder="e.g. CS 140" value="CS 140" />
+            </div>
+
+            <div class="form-group">
+              <label for="res-category-search">Category (Type to Search or Scroll) *</label>
+              <div class="searchable-combobox" id="res-category-combobox">
+                <input type="hidden" id="res-category" name="category" value="Science, Tech & Engineering (STEM)" />
+                <div class="combobox-input-wrap">
+                  <input
+                    type="text"
+                    id="res-category-search"
+                    class="combobox-search-input"
+                    value="Science, Tech & Engineering (STEM)"
+                    placeholder="Type to search or scroll categories..."
+                    autocomplete="off"
+                    onfocus="openCategoryCombobox('res')"
+                    oninput="filterCategoryCombobox('res', this.value)"
+                  />
+                  <button type="button" class="combobox-chevron-btn" onclick="toggleCategoryCombobox('res')" tabindex="-1">
+                    &#9662;
+                  </button>
+                </div>
+                <div id="res-category-dropdown" class="combobox-dropdown hidden"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="res-condition">Item Condition *</label>
+              <select id="res-condition" name="condition" required>
+                <option value="New / Like New">New / Like New</option>
+                <option value="Good" selected>Good</option>
+                <option value="Fair">Fair</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="res-exchange">Exchange Type *</label>
+              <select id="res-exchange" name="exchange_type" required>
+                <option value="Lend">Lend (Borrow for Term)</option>
+                <option value="Donate">Donate (Free to Keep)</option>
+                <option value="Swap">Swap</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Upload Resource Photos (Slots 1 &amp; 2 Mandatory) *</label>
+            <p id="photo-upload-helper-text" style="font-size: 0.8rem; color: #64748b; margin-bottom: 10px;">
+              Both <strong>1. Main Photo (Primary)</strong> and <strong>2. Back / Side View</strong> are mandatory. Slots 3 and 4 are optional.
+            </p>
+            <div class="photo-slots-grid">
+              <div class="photo-slot-box mandatory-slot">
+                <strong id="photo-label-1" class="photo-slot-title">1. Main Photo (Primary) *</strong>
+                <span class="slot-req-badge">Mandatory</span>
+                <img id="preview-front-cover" src="" alt="Main Photo Preview" class="hidden photo-slot-preview" />
+                <input
+                  type="file"
+                  id="file-front-cover"
+                  name="front_cover"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onchange="previewSelectedFile(this, 'preview-front-cover')"
+                  class="photo-slot-input"
+                />
+              </div>
+
+              <div class="photo-slot-box mandatory-slot">
+                <strong id="photo-label-2" class="photo-slot-title">2. Back / Side View *</strong>
+                <span class="slot-req-badge">Mandatory</span>
+                <img id="preview-back-cover" src="" alt="Back / Side View Preview" class="hidden photo-slot-preview" />
+                <input
+                  type="file"
+                  id="file-back-cover"
+                  name="back_cover"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onchange="previewSelectedFile(this, 'preview-back-cover')"
+                  class="photo-slot-input"
+                />
+              </div>
+
+              <div class="photo-slot-box">
+                <strong id="photo-label-3" class="photo-slot-title">3. Detail / Defect Zoom</strong>
+                <span class="slot-opt-badge">Optional</span>
+                <img id="preview-spine" src="" alt="Detail / Defect Zoom Preview" class="hidden photo-slot-preview" />
+                <input
+                  type="file"
+                  id="file-spine"
+                  name="spine"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onchange="previewSelectedFile(this, 'preview-spine')"
+                  class="photo-slot-input"
+                />
+              </div>
+
+              <div class="photo-slot-box">
+                <strong id="photo-label-4" class="photo-slot-title">4. Additional View</strong>
+                <span class="slot-opt-badge">Optional</span>
+                <img id="preview-inside-pages" src="" alt="Additional View Preview" class="hidden photo-slot-preview" />
+                <input
+                  type="file"
+                  id="file-inside-pages"
+                  name="inside_pages"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onchange="previewSelectedFile(this, 'preview-inside-pages')"
+                  class="photo-slot-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="res-description">Description</label>
+            <textarea id="res-description" name="description" rows="4" placeholder="Describe edition, annotations, included lab leads, or pickup preferences..."></textarea>
+          </div>
+
+          <div class="availability-toggle-box">
+            <div>
+              <strong>Available Now</strong>
+              <p>Allow students to immediately send exchange requests for this item.</p>
+            </div>
+            <label class="switch-label">
+              <input type="checkbox" id="res-available" name="is_available" checked />
+              <span>Active &amp; Ready for Pickup</span>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-outline" onclick="navigateTo('my-listings')">Cancel</button>
+            <button type="submit" id="res-submit-btn" class="btn-primary">Publish Resource</button>
+          </div>
+        </form>
+      </section>
+      {% endif %}
+
+      <!-- ================================================================ -->
+      <!-- VIEW 5: MY REQUESTS (Outgoing Requests)                         -->
+      <!-- ================================================================ -->
+      <section id="view-my-requests" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>My Requests</h1>
+            <p>Track the status of textbooks and resources you have requested.</p>
+          </div>
+        </div>
+        <div id="my-requests-container" class="stack-list"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 6: INCOMING REQUESTS (Requests for Your Listings)          -->
+      <!-- ================================================================ -->
+      <section id="view-incoming" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Incoming Requests</h1>
+            <p>Review, accept, or decline requests from peers for your listed resources.</p>
+          </div>
+        </div>
+        <div id="incoming-requests-container" class="stack-list"></div>
+      </section>
+      <!-- ================================================================ -->
+      <!-- VIEW 7: REQUEST DETAILS & PICKUP CHAT (Student / Org Only)       -->
+      <!-- ================================================================ -->
+      <section id="view-request-details" class="view-section hidden">
+        <button
+          type="button"
+          id="request-details-back-btn"
+          class="back-link"
+          onclick="navigateTo('my-requests')"
+        >
+          &larr; Back to Requests
+        </button>
+        <div id="request-details-container"></div>
+      </section>
+      {% endif %}
+
+      <!-- ================================================================ -->
+      <!-- SHARED INSPECT VIEW: ITEM DETAILS (Student / Org / Admin)        -->
+      <!-- ================================================================ -->
+      <section id="view-item-details" class="view-section hidden">
+        <button
+          type="button"
+          id="item-details-back-btn"
+          class="back-link"
+          onclick="navigateTo('{% if current_user.role == 'Admin' %}admin-resources{% else %}browse{% endif %}')"
+        >
+          &larr; Back to {% if current_user.role == 'Admin' %}Resource Feed{% elif current_user.role == 'Organization' %}Listings{% else %}Browse Exchange{% endif %}
+        </button>
+        <div id="item-details-container"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 9A: PROFILE PAGE / TAB 1 — PERSONAL DETAILS                -->
+      <!-- ================================================================ -->
+      <section id="view-profile" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Personal Details</h1>
+            <p>Manage your Full Name, Primary Email Address, Nepali Phone Number, and Campus/Organization Affiliation.</p>
+          </div>
+          <div class="profile-subnav-tabs">
+            <button type="button" class="btn-primary btn-sm" onclick="navigateTo('profile')">
+              1. Personal Details
+            </button>
+            <button type="button" class="btn-outline btn-sm" onclick="navigateTo('security')">
+              2. Account Security
+            </button>
+          </div>
+        </div>
+
+        <form class="card-form" style="max-width: 680px;" onsubmit="handleUpdateProfile(event)">
+          <h3>Personal &amp; Campus Details</h3>
+          <div class="form-group">
+            <label for="prof-name">Full Name *</label>
+            <input type="text" id="prof-name" required value="{{ current_user.name }}" placeholder="e.g. Jordan Taylor" />
+          </div>
+
+          <div class="form-group">
+            <label for="prof-email">Primary Email Address *</label>
+            <input type="email" id="prof-email" required value="{{ current_user.email }}" placeholder="example@gmail.com" />
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="prof-phone">Phone Number *</label>
+              <input
+                type="tel"
+                id="prof-phone"
+                required
+                maxlength="17"
+                value="{{ current_user.phone }}"
+                placeholder="(+977) 9848262163"
+                oninput="enforceDashboardNepaliPhone(this)"
+              />
+              <small style="display: block; margin-top: 4px; font-size: 0.75rem; color: #64748b;">
+                Optional (+977) prefix followed by 10 digits (e.g. (+977) 9848262163).
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="prof-role-readonly">Account Role</label>
+              <input type="text" id="prof-role-readonly" disabled value="{{ current_user.role or 'Student' }}" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="prof-university">University / Organization Affiliation</label>
+            <input type="text" id="prof-university" value="{{ current_user.university or '' }}" placeholder="Enter your university or organization affiliation (optional)" />
+          </div>
+
+          <button type="submit" class="btn-primary">Save Personal Details</button>
+        </form>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 9B: PROFILE PAGE / TAB 2 — ACCOUNT SECURITY                -->
+      <!-- ================================================================ -->
+      <section id="view-security" class="view-section hidden">
+        <div class="page-header">
+          <div>
+            <h1>Account Security</h1>
+            <p>Update your account password or permanently delete your ShareLoop account.</p>
+          </div>
+          <div class="profile-subnav-tabs">
+            <button type="button" class="btn-outline btn-sm" onclick="navigateTo('profile')">
+              1. Personal Details
+            </button>
+            <button type="button" class="btn-primary btn-sm" onclick="navigateTo('security')">
+              2. Account Security
+            </button>
+          </div>
+        </div>
+
+        <div class="security-stack" style="max-width: 680px; display: flex; flex-direction: column; gap: 24px;">
+          <form class="card-form" style="max-width: 100%;" onsubmit="handleChangePassword(event)">
+            <h3>Change Password</h3>
+            <div class="form-group">
+              <label for="pw-current">Current Password *</label>
+              <input type="password" id="pw-current" required placeholder="Enter current password" />
+            </div>
+            <div class="form-group">
+              <label for="pw-new">New Password *</label>
+              <input
+                type="password"
+                id="pw-new"
+                required
+                minlength="8"
+                pattern="(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}"
+                title="Password must be at least 8 characters and include at least one number and one special symbol."
+                placeholder="Min. 8 chars, 1 number &amp; 1 special symbol"
+              />
+            </div>
+            <button type="submit" class="btn-primary">Update Password</button>
+          </form>
+
+          <div class="card-form danger-card" style="max-width: 100%;">
+            <h3>Delete Account</h3>
+            <p>Permanently remove your account, active listings, and request history. This action cannot be undone.</p>
+            <button type="button" class="btn-danger" onclick="requestDeleteAccountConfirmation()">
+              Delete My Account
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.SHARELOOP_INITIAL_USER = {{ current_user | tojson | safe }};
+  </script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=11"></script>
+</body>
+</html>
